@@ -1,0 +1,256 @@
+openapi: 3.0.0
+info:
+  title: Object Detection API
+  description: API for object detection and face blurring using YOLOv7-E6 model
+  version: 3.0.0
+  contact:
+    name: API Support
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+paths:
+  /:
+    get:
+      summary: Health Check
+      description: Check if the API endpoint is reachable
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Endpoint is reachable
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Endpoint reachable"
+
+  /detection:
+    post:
+      summary: Object Detection and Face Blurring
+      description: Detect objects in an image and optionally blur faces of detected persons
+      tags:
+        - Detection
+      security:
+        - secretKey: []
+      parameters:
+        - name: secret-key
+          in: header
+          required: true
+          schema:
+            type: string
+          description: Secret key for API authentication
+        - name: blur-faces
+          in: header
+          required: true
+          schema:
+            type: string
+            enum: ["true", "false"]
+          description: Whether to blur faces in the image
+        - name: detect-objects
+          in: header
+          required: true
+          schema:
+            type: string
+            enum: ["true", "false"]
+          description: Whether to return object detection coordinates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - image
+              properties:
+                image:
+                  type: string
+                  format: byte
+                  description: Base64 encoded image data
+                  example: "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/..."
+            examples:
+              sample_request:
+                summary: Sample detection request
+                value:
+                  image: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+      responses:
+        '200':
+          description: Successful detection response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: ["success"]
+                    example: "success"
+                  coordinates_data:
+                    type: object
+                    description: Object detection results grouped by class
+                    additionalProperties:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          coordinate:
+                            type: array
+                            items:
+                              type: integer
+                            minItems: 4
+                            maxItems: 4
+                            description: Bounding box coordinates [x, y, width, height]
+                            example: [100, 150, 200, 250]
+                          confidence:
+                            type: number
+                            format: float
+                            minimum: 0
+                            maximum: 1
+                            description: Detection confidence score
+                            example: 0.85
+                    example:
+                      person:
+                        - coordinate: [100, 150, 200, 250]
+                          confidence: 0.85
+                        - coordinate: [300, 200, 180, 220]
+                          confidence: 0.92
+                      vehicle:
+                        - coordinate: [500, 100, 300, 200]
+                          confidence: 0.78
+                      construction_vehicle:
+                        - coordinate: [50, 300, 250, 180]
+                          confidence: 0.89
+                  blured_image:
+                    type: string
+                    format: byte
+                    nullable: true
+                    description: Base64 encoded image with blurred faces (null if no faces to blur)
+                    example: "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcU..."
+                  system_message:
+                    type: string
+                    description: System message for invalid header configurations
+                    example: "Please include headers 'blur_faces' and 'detect_objects' with a true or false value."
+              examples:
+                detection_only:
+                  summary: Object detection only
+                  value:
+                    status: "success"
+                    coordinates_data:
+                      person:
+                        - coordinate: [100, 150, 200, 250]
+                          confidence: 0.85
+                      vehicle:
+                        - coordinate: [500, 100, 300, 200]
+                          confidence: 0.78
+                face_blur_only:
+                  summary: Face blurring only
+                  value:
+                    status: "success"
+                    blured_image: "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcU..."
+                both_detection_and_blur:
+                  summary: Both detection and face blurring
+                  value:
+                    status: "success"
+                    coordinates_data:
+                      person:
+                        - coordinate: [100, 150, 200, 250]
+                          confidence: 0.85
+                      vehicle:
+                        - coordinate: [500, 100, 300, 200]
+                          confidence: 0.78
+                    blured_image: "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcU..."
+                no_blur_needed:
+                  summary: No faces large enough to blur
+                  value:
+                    status: "success"
+                    coordinates_data:
+                      person:
+                        - coordinate: [100, 150, 50, 60]
+                          confidence: 0.85
+                    blured_image: null
+        '401':
+          description: Unauthorized - Invalid or missing secret key
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "error"
+                  message:
+                    type: string
+                    example: "Unauthorized access"
+        '400':
+          description: Bad Request - Invalid headers or missing image data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  system_message:
+                    type: string
+                    example: "Please assign a 'true' value to one or both of the headers: 'blur_faces', 'detect_objects'."
+
+components:
+  securitySchemes:
+    secretKey:
+      type: apiKey
+      in: header
+      name: secret-key
+      description: Secret key for API authentication
+
+  schemas:
+    DetectionResult:
+      type: object
+      properties:
+        coordinate:
+          type: array
+          items:
+            type: integer
+          minItems: 4
+          maxItems: 4
+          description: Bounding box coordinates [x, y, width, height]
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Detection confidence score
+
+    CoordinatesData:
+      type: object
+      description: Object detection results grouped by class
+      additionalProperties:
+        type: array
+        items:
+          $ref: '#/components/schemas/DetectionResult'
+      example:
+        person:
+          - coordinate: [100, 150, 200, 250]
+            confidence: 0.85
+        vehicle:
+          - coordinate: [500, 100, 300, 200]
+            confidence: 0.78
+        construction_vehicle:
+          - coordinate: [50, 300, 250, 180]
+            confidence: 0.89
+        bus:
+          - coordinate: [200, 400, 400, 300]
+            confidence: 0.95
+        trailer:
+          - coordinate: [600, 200, 350, 280]
+            confidence: 0.73
+
+tags:
+  - name: Health
+    description: Health check endpoints
+  - name: Detection
+    description: Object detection and image processing endpoints
+
+externalDocs:
+  description: Find more info about YOLOv7
+  url: https://github.com/WongKinYiu/yolov7
