@@ -2,5 +2,8 @@
 .env
 **/.env
 
+#igoner python venv
+venv
+
 # Ignore model directory
 yolov7_model
