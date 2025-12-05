@@ -102,7 +102,7 @@ def encode_image_base64(image):
         return None
 
 
-def calculate_head_bbox_from_landmarks(landmarks, person_bbox, image_shape, padding=0.2):
+def calculate_head_bbox_from_landmarks(landmarks, person_bbox, image_shape, padding=0.2, scale=2.0):
     """
     Calculate a head bounding box from pose landmarks.
 
@@ -111,6 +111,7 @@ def calculate_head_bbox_from_landmarks(landmarks, person_bbox, image_shape, padd
         person_bbox: Person bounding box (x, y, w, h) for context
         image_shape: Shape of the subframe image (height, width)
         padding: Extra padding around detected landmarks (ratio)
+        scale: Scale factor for final box size (2.0 = 100% bigger, doubled)
 
     Returns:
         Head bounding box (x, y, w, h) relative to the subframe, or None
@@ -149,9 +150,9 @@ def calculate_head_bbox_from_landmarks(landmarks, person_bbox, image_shape, padd
     center_x = (min_x + max_x) / 2
     center_y = (min_y + max_y) / 2 - height * 0.3  # Shift up slightly
 
-    # Apply padding
-    final_width = estimated_head_width * (1 + padding)
-    final_height = estimated_head_height * (1 + padding)
+    # Apply padding and scale factor (scale=2.0 doubles the box size proportionally)
+    final_width = estimated_head_width * (1 + padding) * scale
+    final_height = estimated_head_height * (1 + padding) * scale
 
     x = int(center_x - final_width / 2)
     y = int(center_y - final_height / 2)
