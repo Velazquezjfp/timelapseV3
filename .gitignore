@@ -10,3 +10,4 @@ venv
 
 # Ignore model directory
 yolov7_model
+yolov7_model.zip
