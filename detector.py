@@ -136,21 +136,32 @@ def get_detector():
     return _detector
 
 def process_image_multi_detector(numpy_image):
-    """Main function to maintain compatibility with original API"""
+    """Main function to maintain compatibility with original API.
+
+    Returns:
+        Tuple of (detection_results, original_size) where:
+            - detection_results: dict with class names as keys
+            - original_size: tuple (width, height) of original image
+    """
     try:
         # Decode numpy array to image
         image_decode_bs64 = cv2.imdecode(numpy_image, cv2.IMREAD_COLOR)
-        
+
+        # Get original image dimensions (height, width, channels)
+        img_h, img_w = image_decode_bs64.shape[:2]
+        original_size = (img_w, img_h)
+
         # Save the image as jpg (keeping original functionality)
         cv2.imwrite('./image.jpg', image_decode_bs64)
-        
+
         # Get detector and run inference
         detector = get_detector()
         result = detector.detect_objects(image_decode_bs64)
-        
+
         print(f'Detection results: {result}')
-        return result
-        
+        print(f'Original image size: {original_size}')
+        return result, original_size
+
     except Exception as e:
         print(f"Error in process_image_multi_detector: {e}")
-        return {}
+        return {}, (0, 0)

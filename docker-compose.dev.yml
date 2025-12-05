@@ -1,0 +1,24 @@
+# Development compose file - mounts code as volume for hot reload
+# Usage: docker compose -f docker-compose.dev.yml up
+#
+# For production, use normal docker build instead:
+#   docker build -t test:timelapse .
+#   docker run -p 3011:8080 test:timelapse
+
+version: '3.8'
+
+services:
+  api:
+    build: .
+    ports:
+      - "3011:8080"
+    volumes:
+      # Mount source code for hot reload (excludes dependencies)
+      - ./app.py:/app/app.py
+      - ./detector.py:/app/detector.py
+      - ./face_module:/app/face_module
+      - ./test_api.py:/app/test_api.py
+    environment:
+      - PYTHONUNBUFFERED=1
+    # Use Flask dev server for hot reload instead of Gunicorn
+    command: python -c "from app import app; app.run(host='0.0.0.0', port=8080, debug=False)"

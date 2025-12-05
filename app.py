@@ -2,7 +2,7 @@ import os
 from flask import Flask, request, jsonify
 import base64
 import numpy as np
-from face_detect import face_detect
+from face_module import blur_heads
 from detector import process_image_multi_detector
 from dotenv import load_dotenv
 
@@ -29,6 +29,7 @@ def detect():
     # Get headers
     blur_faces = request.headers.get('blur-faces')
     detect_objects = request.headers.get('detect-objects')
+    blur_mode = request.headers.get('blur-mode', 'standard')  # 'standard' or 'fast'
 
     # Check for active services
     if not blur_faces and not detect_objects:
@@ -48,19 +49,25 @@ def detect():
     numpy_image = np.frombuffer(image_data, np.uint8)
 
     # Process image based on headers
-    detection_data = process_image_multi_detector(numpy_image)
+    detection_data, original_size = process_image_multi_detector(numpy_image)
 
     # Initialize response
     response = {"status": "success"}
 
-    # Handle face blurring if required
+    # Handle face/head blurring if required
     if blur_faces == 'true' and 'person' in detection_data and len(detection_data['person']) > 0:
         person_coordinates = [entry['coordinate'] for entry in detection_data['person']]
-        person_coordinates_filtered = [coord for coord in person_coordinates if coord[2] >= 120 or coord[3] >= 120]
-        if person_coordinates_filtered:
-            blurred_image_base64 = face_detect(person_coordinates_filtered)
-            
-            # Send response based on headers values. Blured image could be None value. 
+
+        if person_coordinates:
+            # Use new face_module with MediaPipe Pose-based head detection
+            blurred_image_base64 = blur_heads(
+                person_coordinates,
+                './image.jpg',
+                original_size,
+                mode=blur_mode
+            )
+
+            # Send response based on headers values. Blurred image could be None value.
             if detect_objects == 'true':
                 response.update({
                     "coordinates_data": detection_data,
@@ -69,7 +76,7 @@ def detect():
             else:
                 response["blured_image"] = blurred_image_base64
         else:
-            # If there was no filtered people it means there is no bluring: 
+            # If there were no people detected, no blurring needed
             if detect_objects == 'true':
                 response.update({
                     "coordinates_data": detection_data,
